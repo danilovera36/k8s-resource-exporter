@@ -1,4 +1,4 @@
-"""Kubernetes resource collector."""
+# k8s-resource-collector logic
 
 from datetime import datetime, timezone
 from typing import Optional

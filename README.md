@@ -1,6 +1,6 @@
 # k8s-resource-exporter
 
-> Export Kubernetes cluster resources to structured **YAML**, **JSON**, or **interactive HTML** reports — directly from your terminal.
+CLI to export cluster resources into YAML, JSON, or standalone HTML reports.
 
 [![CI](https://github.com/danilovera36/k8s-resource-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/danilovera36/k8s-resource-exporter)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://python.org)
@@ -10,7 +10,7 @@
 
 ---
 
-## ✨ Features
+## Features
 
 - 📦 Exports **10 resource types**: Deployments, DaemonSets, StatefulSets, Services, ConfigMaps, Secrets, Pods, Ingresses, HPAs, PVCs
 - 📊 **Interactive HTML report** — shareable without kubectl access
@@ -21,7 +21,7 @@
 
 ---
 
-## 🚀 Quick Start
+## Usage
 
 ```bash
 # Install

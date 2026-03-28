@@ -1,4 +1,4 @@
-"""CLI entry point for k8s-resource-exporter."""
+# k8s-resource-exporter CLI
 
 import click
 import sys
