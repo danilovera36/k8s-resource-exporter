@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kubernetes Cluster Report — {{ metadata.exported_at[:10] }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #1c2128;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #7d8590;
+      --accent:    #58a6ff;
+      --green:     #3fb950;
+      --yellow:    #d29922;
+      --red:       #f85149;
+      --purple:    #bc8cff;
+      --teal:      #39d353;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .topbar .logo {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+
+    .topbar .badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .topbar .meta {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    /* Summary cards */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .card .count {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1;
+    }
+
+    .card .label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 6px;
+      text-transform: capitalize;
+    }
+
+    /* Alert box */
+    .alert {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+
+    .alert.warn {
+      background: rgba(210, 153, 34, 0.12);
+      border: 1px solid rgba(210, 153, 34, 0.4);
+      color: var(--yellow);
+    }
+
+    .alert.ok {
+      background: rgba(63, 185, 80, 0.1);
+      border: 1px solid rgba(63, 185, 80, 0.35);
+      color: var(--green);
+    }
+
+    /* Sections */
+    .section {
+      margin-bottom: 40px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .section-header h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      text-transform: capitalize;
+    }
+
+    .section-header .pill {
+      background: var(--surface2);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Table */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead {
+      background: var(--surface2);
+    }
+
+    th {
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tr:hover td { background: var(--surface2); }
+
+    .status-ok  { color: var(--green); }
+    .status-warn { color: var(--yellow); }
+    .status-err { color: var(--red); }
+
+    .tag {
+      display: inline-block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 11px;
+      margin: 1px;
+      color: var(--muted);
+    }
+
+    .empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 32px;
+      color: var(--muted);
+      font-size: 12px;
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">⎈ k8s-resource-exporter</span>
+  <span class="badge">k8s {{ metadata.server_version }}</span>
+  <span class="badge">ns: {{ metadata.namespace }}</span>
+  <span class="meta">Generated {{ generated_at }}</span>
+</div>
+
+<main>
+
+  <!-- Health banner -->
+  {% if unhealthy_deployments %}
+  <div class="alert warn">
+    ⚠ {{ unhealthy_deployments | length }} deployment(s) have unhealthy replicas:
+    {% for d in unhealthy_deployments %}
+      <strong>{{ d.namespace }}/{{ d.name }}</strong> ({{ d.ready_replicas }}/{{ d.replicas }}){% if not loop.last %},{% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="alert ok">
+    ✓ All deployments are healthy
+  </div>
+  {% endif %}
+
+  <!-- Summary cards -->
+  <div class="summary-grid">
+    <div class="card">
+      <div class="count">{{ total }}</div>
+      <div class="label">Total Resources</div>
+    </div>
+    {% for resource, count in summary.items() %}
+    <div class="card">
+      <div class="count">{{ count }}</div>
+      <div class="label">{{ resource }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Deployments -->
+  {% if resources.deployments %}
+  <div class="section">
+    <div class="section-header">
+      <h2>Deployments</h2>
+      <span class="pill">{{ resources.deployments | length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Namespace</th><th>Name</th><th>Replicas</th><th>Strategy</th><th>Images</th><th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in resources.deployments %}
+          <tr>
+            <td><span class="tag">{{ d.namespace }}</span></td>
+            <td>{{ d.name }}</td>
+            <td class="{{ 'status-ok' if d.ready_replicas == d.replicas else 'status-warn' }}">
+              {{ d.ready_replicas }}/{{ d.replicas }}
+            </td>
+            <td>{{ d.strategy or '—' }}</td>
+            <td>{% for img in d.image %}<span class="tag">{{ img }}</span>{% endfor %}</td>
+            <td>{{ (d.created_at or '')[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Services -->
+  {% if resources.services %}
+  <div class="section">
+    <div class="section-header">
+      <h2>Services</h2>
+      <span class="pill">{{ resources.services | length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Namespace</th><th>Name</th><th>Type</th><th>Cluster IP</th><th>Ports</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+          {% for s in resources.services %}
+          <tr>
+            <td><span class="tag">{{ s.namespace }}</span></td>
+            <td>{{ s.name }}</td>
+            <td>{{ s.type }}</td>
+            <td>{{ s.cluster_ip or '—' }}</td>
+            <td>{% for p in s.ports %}<span class="tag">{{ p.port }}/{{ p.protocol }}</span>{% endfor %}</td>
+            <td>{{ (s.created_at or '')[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Ingresses -->
+  {% if resources.ingresses %}
+  <div class="section">
+    <div class="section-header">
+      <h2>Ingresses</h2>
+      <span class="pill">{{ resources.ingresses | length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Namespace</th><th>Name</th><th>Hosts</th><th>TLS</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+          {% for i in resources.ingresses %}
+          <tr>
+            <td><span class="tag">{{ i.namespace }}</span></td>
+            <td>{{ i.name }}</td>
+            <td>{% for r in i.rules %}<span class="tag">{{ r.host }}</span>{% endfor %}</td>
+            <td>{{ '✓' if i.tls else '—' }}</td>
+            <td>{{ (i.created_at or '')[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ConfigMaps -->
+  {% if resources.configmaps %}
+  <div class="section">
+    <div class="section-header">
+      <h2>ConfigMaps</h2>
+      <span class="pill">{{ resources.configmaps | length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Namespace</th><th>Name</th><th>Keys</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+          {% for c in resources.configmaps %}
+          <tr>
+            <td><span class="tag">{{ c.namespace }}</span></td>
+            <td>{{ c.name }}</td>
+            <td>{% for k in c.keys %}<span class="tag">{{ k }}</span>{% endfor %}</td>
+            <td>{{ (c.created_at or '')[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Secrets -->
+  {% if resources.secrets %}
+  <div class="section">
+    <div class="section-header">
+      <h2>Secrets</h2>
+      <span class="pill">{{ resources.secrets | length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Namespace</th><th>Name</th><th>Type</th><th>Keys</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+          {% for s in resources.secrets %}
+          <tr>
+            <td><span class="tag">{{ s.namespace }}</span></td>
+            <td>{{ s.name }}</td>
+            <td>{{ s.type }}</td>
+            <td>{% for k in s.keys %}<span class="tag">{{ k }}</span>{% endfor %}</td>
+            <td>{{ (s.created_at or '')[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Pods -->
+  {% if resources.pods %}
+  <div class="section">
+    <div class="section-header">
+      <h2>Pods</h2>
+      <span class="pill">{{ resources.pods | length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Namespace</th><th>Name</th><th>Phase</th><th>Node</th><th>Restarts</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+          {% for p in resources.pods %}
+          <tr>
+            <td><span class="tag">{{ p.namespace }}</span></td>
+            <td>{{ p.name }}</td>
+            <td class="{{ 'status-ok' if p.phase == 'Running' else 'status-warn' }}">{{ p.phase }}</td>
+            <td>{{ p.node or '—' }}</td>
+            <td class="{{ 'status-warn' if p.restarts > 0 else '' }}">{{ p.restarts }}</td>
+            <td>{{ (p.created_at or '')[:10] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- HPAs -->
+  {% if resources.hpas %}
+  <div class="section">
+    <div class="section-header">
+      <h2>Horizontal Pod Autoscalers</h2>
+      <span class="pill">{{ resources.hpas | length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Namespace</th><th>Name</th><th>Target</th><th>Min</th><th>Max</th><th>Current</th></tr>
+        </thead>
+        <tbody>
+          {% for h in resources.hpas %}
+          <tr>
+            <td><span class="tag">{{ h.namespace }}</span></td>
+            <td>{{ h.name }}</td>
+            <td>{{ h.target }}</td>
+            <td>{{ h.min_replicas }}</td>
+            <td>{{ h.max_replicas }}</td>
+            <td>{{ h.current_replicas }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- PVCs -->
+  {% if resources.pvcs %}
+  <div class="section">
+    <div class="section-header">
+      <h2>Persistent Volume Claims</h2>
+      <span class="pill">{{ resources.pvcs | length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Namespace</th><th>Name</th><th>Status</th><th>Capacity</th><th>Storage Class</th><th>Access Modes</th></tr>
+        </thead>
+        <tbody>
+          {% for p in resources.pvcs %}
+          <tr>
+            <td><span class="tag">{{ p.namespace }}</span></td>
+            <td>{{ p.name }}</td>
+            <td class="{{ 'status-ok' if p.status == 'Bound' else 'status-warn' }}">{{ p.status }}</td>
+            <td>{{ p.capacity or '—' }}</td>
+            <td>{{ p.storage_class or '—' }}</td>
+            <td>{% for a in p.access_modes %}<span class="tag">{{ a }}</span>{% endfor %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</main>
+
+<footer>
+  Generated by <a href="https://github.com/your-username/k8s-resource-exporter">k8s-resource-exporter</a> 
+  · {{ generated_at }}
+</footer>
+
+</body>
+</html>
